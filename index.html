@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Algorithme du Simplexe</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-6 text-gray-800">
+  <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow">
+    <h1 class="text-2xl font-bold mb-4 text-center">Solveur Simplexe (Max Z)</h1>
+
+    <div class="grid sm:grid-cols-2 gap-4 mb-4">
+      <label class="flex flex-col">
+        Nombre de variables :
+        <input type="number" id="numVars" class="border p-2 rounded" value="2" min="1">
+      </label>
+      <label class="flex flex-col">
+        Nombre de contraintes :
+        <input type="number" id="numConstraints" class="border p-2 rounded" value="2" min="1">
+      </label>
+    </div>
+
+    <button onclick="generateInputs()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Générer les champs</button>
+
+    <div id="inputsSection" class="mt-6 space-y-6"></div>
+
+    <div class="flex gap-4 mt-4">
+      <button onclick="solve()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Résoudre</button>
+      <button onclick="resetForm()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Réinitialiser</button>
+    </div>
+
+    <pre id="result" class="bg-gray-900 text-green-300 p-4 mt-6 rounded overflow-auto whitespace-pre-wrap text-sm max-h-[400px]"></pre>
+  </div>
+
+  <script>
+    function generateInputs() {
+      const n = parseInt(document.getElementById("numVars").value);
+      const m = parseInt(document.getElementById("numConstraints").value);
+      const section = document.getElementById("inputsSection");
+      section.innerHTML = "";
+
+      let constraintsHTML = `<div><h2 class="text-lg font-semibold mb-2">Contraintes</h2>`;
+      for (let i = 0; i < m; i++) {
+        constraintsHTML += `<div class="flex flex-wrap items-center gap-2 mb-2">`;
+        for (let j = 0; j < n; j++) {
+          constraintsHTML += `<input type="number" step="any" id="c-${i}-${j}" placeholder="x${j + 1}" class="border p-2 w-20 rounded">`;
+        }
+        constraintsHTML += ` ≤ <input type="number" step="any" id="rhs-${i}" placeholder="RHS" class="border p-2 w-20 rounded">`;
+        constraintsHTML += `</div>`;
+      }
+      constraintsHTML += `</div>`;
+
+      let objHTML = `<div><h2 class="text-lg font-semibold mb-2">Fonction Objectif (Z)</h2><div class="flex flex-wrap items-center gap-2 mb-2">`;
+      for (let j = 0; j < n; j++) {
+        objHTML += `<input type="number" step="any" id="obj-${j}" placeholder="x${j + 1}" class="border p-2 w-20 rounded">`;
+      }
+      objHTML += `</div></div>`;
+
+      section.innerHTML = constraintsHTML + objHTML;
+    }
+
+    function resetForm() {
+      document.getElementById("inputsSection").innerHTML = "";
+      document.getElementById("result").textContent = "";
+    }
+
+    function solve() {
+      const n = parseInt(document.getElementById("numVars").value);
+      const m = parseInt(document.getElementById("numConstraints").value);
+      const tableau = [];
+
+      for (let i = 0; i < m; i++) {
+        let row = [];
+        for (let j = 0; j < n; j++) {
+          row.push(parseFloat(document.getElementById(`c-${i}-${j}`).value || 0));
+        }
+        for (let j = 0; j < m; j++) {
+          row.push(i === j ? 1 : 0);
+        }
+        row.push(parseFloat(document.getElementById(`rhs-${i}`).value || 0));
+        tableau.push(row);
+      }
+
+      let objRow = [];
+      for (let j = 0; j < n; j++) {
+        objRow.push(-parseFloat(document.getElementById(`obj-${j}`).value || 0));
+      }
+      for (let j = 0; j < m + 1; j++) {
+        objRow.push(0);
+      }
+      tableau.push(objRow);
+
+      const result = runSimplex(tableau);
+      document.getElementById("result").textContent = result;
+    }
+
+    function runSimplex(tableau) {
+      const numRows = tableau.length;
+      const numCols = tableau[0].length;
+      let log = "";
+
+      while (true) {
+        log += tableau.map(r => r.map(v => v.toFixed(2)).join("\t")).join("\n") + "\n\n";
+
+        let pivotCol = -1;
+        let minValue = 0;
+        for (let j = 0; j < numCols - 1; j++) {
+          if (tableau[numRows - 1][j] < minValue) {
+            minValue = tableau[numRows - 1][j];
+            pivotCol = j;
+          }
+        }
+
+        if (pivotCol === -1) {
+          log += "✅ Solution optimale atteinte !\n";
+          break;
+        }
+
+        let pivotRow = -1;
+        let minRatio = Infinity;
+        for (let i = 0; i < numRows - 1; i++) {
+          if (tableau[i][pivotCol] > 0) {
+            let ratio = tableau[i][numCols - 1] / tableau[i][pivotCol];
+            if (ratio < minRatio) {
+              minRatio = ratio;
+              pivotRow = i;
+            }
+          }
+        }
+
+        if (pivotRow === -1) return "❌ Solution non bornée.\n";
+
+        let pivotValue = tableau[pivotRow][pivotCol];
+        for (let j = 0; j < numCols; j++) {
+          tableau[pivotRow][j] /= pivotValue;
+        }
+
+        for (let i = 0; i < numRows; i++) {
+          if (i !== pivotRow) {
+            let factor = tableau[i][pivotCol];
+            for (let j = 0; j < numCols; j++) {
+              tableau[i][j] -= factor * tableau[pivotRow][j];
+            }
+          }
+        }
+
+        log += `Pivot sur ligne ${pivotRow + 1}, colonne ${pivotCol + 1}\n\n`;
+      }
+
+      let solution = Array(numCols - 1).fill(0);
+      for (let j = 0; j < numCols - 1; j++) {
+        let pivotRow = -1;
+        for (let i = 0; i < numRows - 1; i++) {
+          if (tableau[i][j] === 1 && tableau.every((r, k) => k === i || r[j] === 0)) {
+            pivotRow = i;
+            break;
+          }
+        }
+        if (pivotRow !== -1) {
+          solution[j] = tableau[pivotRow][numCols - 1];
+        }
+      }
+
+      log += "Solution :\n";
+      solution.forEach((v, i) => {
+        log += `x${i + 1} = ${v.toFixed(2)}\n`;
+      });
+      log += `Z = ${tableau[numRows - 1][numCols - 1].toFixed(2)}\n`;
+
+      return log;
+    }
+  </script>
+</body>
+</html>
