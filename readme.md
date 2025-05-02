@@ -26,5 +26,5 @@ Ce projet est une **implémentation interactive de l’algorithme du simplexe** 
 ### 1. Cloner le dépôt (ou copier le fichier)
 
 ```bash
-git clone https://github.com/ton-utilisateur/solveur-simplexe.git
+git clone https://github.com/Hermesmavinga/Solveur-Simplexe.git
 cd solveur-simplexe
