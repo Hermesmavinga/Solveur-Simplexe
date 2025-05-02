@@ -2,128 +2,160 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Implémentation interactive de l'algorithme du simplexe en JavaScript avec une interface responsive stylisée avec Tailwind CSS. Résolvez vos problèmes d’optimisation linéaire facilement." />
+  <meta name="keywords" content="simplexe, algorithme, JavaScript, optimisation linéaire, tailwind, mathématiques, maximisation" />
+  <meta name="author" content="Mavinga Lukumbi Hermès et Kalenda Dieudonne" />
   <title>Résolveur Simplexe</title>
-  <title>Algorithme du Simplexe</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 p-6 text-gray-800">
-  <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow">
-    <h1 class="text-2xl font-bold mb-4 text-center">Solveur Simplexe (Max Z)</h1>
+<body class="bg-gray-100 text-gray-800 min-h-screen flex flex-col items-center p-4">
 
-    <div class="grid sm:grid-cols-2 gap-4 mb-4">
-      <label class="flex flex-col">
-        Nombre de variables :
-        <input type="number" id="numVars" class="border p-2 rounded" value="2" min="1">
-      </label>
-      <label class="flex flex-col">
-        Nombre de contraintes :
-        <input type="number" id="numConstraints" class="border p-2 rounded" value="2" min="1">
-      </label>
+  <header class="mb-6 text-center">
+    <h1 class="text-3xl font-bold text-blue-700 mb-2">Résolveur Simplexe</h1>
+    <p class="text-gray-600">Optimisez vos fonctions linéaires avec une interface simple et responsive</p>
+  </header>
+
+  <main class="w-full max-w-4xl bg-white shadow-md rounded-xl p-6 space-y-4">
+    <!-- Formulaire de saisie -->
+    <form id="simplexForm" class="space-y-4">
+      <div>
+        <label for="variables" class="block font-medium">Nombre de variables :</label>
+        <input type="number" id="variables" name="variables" min="1" class="mt-1 w-full border border-gray-300 rounded px-3 py-2" required>
+      </div>
+
+      <div>
+        <label for="contraintes" class="block font-medium">Nombre de contraintes :</label>
+        <input type="number" id="contraintes" name="contraintes" min="1" class="mt-1 w-full border border-gray-300 rounded px-3 py-2" required>
+      </div>
+
+      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Valider</button>
+    </form>
+
+    <!-- Zone de saisie dynamique -->
+    <div id="formZone" class="space-y-4"></div>
+
+    <!-- Bouton de résolution -->
+    <div id="solveBtnContainer" class="hidden">
+      <button onclick="solveSimplex()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Résoudre</button>
     </div>
 
-    <button onclick="generateInputs()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Générer les champs</button>
+    <!-- Résultat -->
+    <div id="result" class="mt-6 text-lg font-semibold text-green-700"></div>
+  </main>
 
-    <div id="inputsSection" class="mt-6 space-y-6"></div>
-
-    <div class="flex gap-4 mt-4">
-      <button onclick="solve()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Résoudre</button>
-      <button onclick="resetForm()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Réinitialiser</button>
-    </div>
-
-    <pre id="result" class="bg-gray-900 text-green-300 p-4 mt-6 rounded overflow-auto whitespace-pre-wrap text-sm max-h-[400px]"></pre>
-  </div>
+  <footer class="mt-10 text-sm text-gray-500 text-center">
+    &copy; 2025 Mavinga Lukumbi Hermès et Kalenda Dieudonne - Projet Simplexe en JavaScript
+  </footer>
 
   <script>
-    function generateInputs() {
-      const n = parseInt(document.getElementById("numVars").value);
-      const m = parseInt(document.getElementById("numConstraints").value);
-      const section = document.getElementById("inputsSection");
-      section.innerHTML = "";
+    const form = document.getElementById("simplexForm");
+    const formZone = document.getElementById("formZone");
+    const solveBtnContainer = document.getElementById("solveBtnContainer");
+    const result = document.getElementById("result");
 
-      let constraintsHTML = `<div><h2 class="text-lg font-semibold mb-2">Contraintes</h2>`;
-      for (let i = 0; i < m; i++) {
-        constraintsHTML += `<div class="flex flex-wrap items-center gap-2 mb-2">`;
-        for (let j = 0; j < n; j++) {
-          constraintsHTML += `<input type="number" step="any" id="c-${i}-${j}" placeholder="x${j + 1}" class="border p-2 w-20 rounded">`;
+    let n, m;
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      n = parseInt(document.getElementById("variables").value);
+      m = parseInt(document.getElementById("contraintes").value);
+      renderFormInputs(n, m);
+    });
+
+    function renderFormInputs(n, m) {
+      formZone.innerHTML = "";
+
+      const objectiveLabel = document.createElement("p");
+      objectiveLabel.textContent = "Fonction Objectif : (Z =)";
+      formZone.appendChild(objectiveLabel);
+
+      const objectiveRow = document.createElement("div");
+      for (let i = 0; i < n; i++) {
+        const input = document.createElement("input");
+        input.type = "number";
+        input.placeholder = `x${i + 1}`;
+        input.className = "border w-20 mx-1 px-2 py-1 rounded";
+        input.name = `obj${i}`;
+        objectiveRow.appendChild(input);
+      }
+      formZone.appendChild(objectiveRow);
+
+      for (let j = 0; j < m; j++) {
+        const constraintLabel = document.createElement("p");
+        constraintLabel.textContent = `Contrainte ${j + 1} :`;
+        formZone.appendChild(constraintLabel);
+
+        const constraintRow = document.createElement("div");
+        for (let i = 0; i < n; i++) {
+          const input = document.createElement("input");
+          input.type = "number";
+          input.placeholder = `x${i + 1}`;
+          input.className = "border w-20 mx-1 px-2 py-1 rounded";
+          input.name = `con${j}_${i}`;
+          constraintRow.appendChild(input);
         }
-        constraintsHTML += ` ≤ <input type="number" step="any" id="rhs-${i}" placeholder="RHS" class="border p-2 w-20 rounded">`;
-        constraintsHTML += `</div>`;
-      }
-      constraintsHTML += `</div>`;
 
-      let objHTML = `<div><h2 class="text-lg font-semibold mb-2">Fonction Objectif (Z)</h2><div class="flex flex-wrap items-center gap-2 mb-2">`;
-      for (let j = 0; j < n; j++) {
-        objHTML += `<input type="number" step="any" id="obj-${j}" placeholder="x${j + 1}" class="border p-2 w-20 rounded">`;
-      }
-      objHTML += `</div></div>`;
+        const rhs = document.createElement("input");
+        rhs.type = "number";
+        rhs.placeholder = "≤ b";
+        rhs.className = "border w-24 mx-1 px-2 py-1 rounded";
+        rhs.name = `rhs${j}`;
+        constraintRow.appendChild(rhs);
 
-      section.innerHTML = constraintsHTML + objHTML;
+        formZone.appendChild(constraintRow);
+      }
+
+      solveBtnContainer.classList.remove("hidden");
     }
 
-    function resetForm() {
-      document.getElementById("inputsSection").innerHTML = "";
-      document.getElementById("result").textContent = "";
+    function solveSimplex() {
+      const A = [];
+      const B = [];
+      const C = [];
+
+      for (let j = 0; j < m; j++) {
+        A[j] = [];
+        for (let i = 0; i < n; i++) {
+          A[j][i] = parseFloat(document.getElementsByName(`con${j}_${i}`)[0].value) || 0;
+        }
+        B[j] = parseFloat(document.getElementsByName(`rhs${j}`)[0].value) || 0;
+      }
+
+      for (let i = 0; i < n; i++) {
+        C[i] = parseFloat(document.getElementsByName(`obj${i}`)[0].value) || 0;
+      }
+
+      const solution = simplex(A, B, C);
+      result.innerHTML = `
+        <p>x = [${solution.x.map(v => v.toFixed(2)).join(", ")}]</p>
+        <p>Z = ${solution.z.toFixed(2)}</p>
+      `;
     }
 
-    function solve() {
-      const n = parseInt(document.getElementById("numVars").value);
-      const m = parseInt(document.getElementById("numConstraints").value);
+    function simplex(A, B, C) {
+      const m = A.length;
+      const n = A[0].length;
       const tableau = [];
 
       for (let i = 0; i < m; i++) {
-        let row = [];
-        for (let j = 0; j < n; j++) {
-          row.push(parseFloat(document.getElementById(`c-${i}-${j}`).value || 0));
-        }
-        for (let j = 0; j < m; j++) {
-          row.push(i === j ? 1 : 0);
-        }
-        row.push(parseFloat(document.getElementById(`rhs-${i}`).value || 0));
-        tableau.push(row);
+        tableau[i] = [...A[i], ...Array(m).fill(0), B[i]];
+        tableau[i][n + i] = 1;
       }
 
-      let objRow = [];
-      for (let j = 0; j < n; j++) {
-        objRow.push(-parseFloat(document.getElementById(`obj-${j}`).value || 0));
-      }
-      for (let j = 0; j < m + 1; j++) {
-        objRow.push(0);
-      }
-      tableau.push(objRow);
-
-      const result = runSimplex(tableau);
-      document.getElementById("result").textContent = result;
-    }
-
-    function runSimplex(tableau) {
-      const numRows = tableau.length;
-      const numCols = tableau[0].length;
-      let log = "";
+      const objectiveRow = [...C.map(c => -c), ...Array(m + 1).fill(0)];
+      tableau.push(objectiveRow);
 
       while (true) {
-        log += tableau.map(r => r.map(v => v.toFixed(2)).join("\t")).join("\n") + "\n\n";
+        const lastRow = tableau[tableau.length - 1];
+        const entering = lastRow.findIndex(v => v < 0);
+        if (entering === -1) break;
 
-        let pivotCol = -1;
-        let minValue = 0;
-        for (let j = 0; j < numCols - 1; j++) {
-          if (tableau[numRows - 1][j] < minValue) {
-            minValue = tableau[numRows - 1][j];
-            pivotCol = j;
-          }
-        }
-
-        if (pivotCol === -1) {
-          log += "✅ Solution optimale atteinte !\n";
-          break;
-        }
-
-        let pivotRow = -1;
         let minRatio = Infinity;
-        for (let i = 0; i < numRows - 1; i++) {
-          if (tableau[i][pivotCol] > 0) {
-            let ratio = tableau[i][numCols - 1] / tableau[i][pivotCol];
+        let pivotRow = -1;
+        for (let i = 0; i < m; i++) {
+          if (tableau[i][entering] > 0) {
+            const ratio = tableau[i][n + m] / tableau[i][entering];
             if (ratio < minRatio) {
               minRatio = ratio;
               pivotRow = i;
@@ -131,47 +163,35 @@
           }
         }
 
-        if (pivotRow === -1) return "❌ Solution non bornée.\n";
+        if (pivotRow === -1) break;
 
-        let pivotValue = tableau[pivotRow][pivotCol];
-        for (let j = 0; j < numCols; j++) {
-          tableau[pivotRow][j] /= pivotValue;
+        const pivot = tableau[pivotRow][entering];
+        for (let j = 0; j < tableau[pivotRow].length; j++) {
+          tableau[pivotRow][j] /= pivot;
         }
 
-        for (let i = 0; i < numRows; i++) {
+        for (let i = 0; i < tableau.length; i++) {
           if (i !== pivotRow) {
-            let factor = tableau[i][pivotCol];
-            for (let j = 0; j < numCols; j++) {
+            const factor = tableau[i][entering];
+            for (let j = 0; j < tableau[i].length; j++) {
               tableau[i][j] -= factor * tableau[pivotRow][j];
             }
           }
         }
-
-        log += `Pivot sur ligne ${pivotRow + 1}, colonne ${pivotCol + 1}\n\n`;
       }
 
-      let solution = Array(numCols - 1).fill(0);
-      for (let j = 0; j < numCols - 1; j++) {
-        let pivotRow = -1;
-        for (let i = 0; i < numRows - 1; i++) {
-          if (tableau[i][j] === 1 && tableau.every((r, k) => k === i || r[j] === 0)) {
-            pivotRow = i;
-            break;
-          }
-        }
-        if (pivotRow !== -1) {
-          solution[j] = tableau[pivotRow][numCols - 1];
+      const solution = Array(n).fill(0);
+      for (let i = 0; i < m; i++) {
+        let pivotCol = tableau[i].slice(0, n).findIndex((v, col) => v === 1 && tableau.every((row, ri) => ri === i || row[col] === 0));
+        if (pivotCol !== -1) {
+          solution[pivotCol] = tableau[i][n + m];
         }
       }
 
-      log += "Solution :\n";
-      solution.forEach((v, i) => {
-        log += `x${i + 1} = ${v.toFixed(2)}\n`;
-      });
-      log += `Z = ${tableau[numRows - 1][numCols - 1].toFixed(2)}\n`;
-
-      return log;
+      const z = tableau[tableau.length - 1][n + m];
+      return { x: solution, z: z };
     }
   </script>
+
 </body>
 </html>
